@@ -1,70 +1,75 @@
-// The 'token_14400' program.
 program token_14400.aleo {
-    mapping balance: address => u64;
 
-    record Token {
-        owner: address,
-        balance: u64,
-    }
+  mapping balance: address => u64;
 
-    transition mint(amount:u64) -> Token {
-        return Token {
-            owner: self.caller,
-            balance: amount,
-        };
-    }
+  record Token {
+    owner: address,
+    balance: u64,
+  }
 
-    transition transfer_private(receiver:address, amount:u64, input:Token) -> (Token) {
-        let remaining: u64 = input.balance - amount;
+  transition mint(amount: u64) -> Token {
+    return Token {
+      owner: self.caller,
+      balance: amount
+    };
+  }
 
-        let caller: Token = Token {
-            owner: self.caller,
-            balance: remaining,
-        };
+  // leo run mint "100u64"
 
-        let recipient: Token = Token {
-            owner: receiver,
-            balance: amount,
-        };
+  transition transfer_private(receiver: address, amount: u64, input: Token) -> (Token, Token){
+    let remaining: u64 = input.balance - amount;
 
-        return (caller, recipient);
-    }
+    let caller: Token = Token {
+      owner: self.caller,
+      balance: remaining,
+    };
 
-    transition transfer_private_to_public(receiver:address, amount:u64, input:Token) -> (Token) {
-        let remaining: u64 = input.balance - amount;
+    let recipient: Token = Token {
+      owner: receiver,
+      balance: amount,
+    };
 
-        let caller: Token = Token {
-            owner: self.caller,
-            balance: remaining,
-        };
+    return (caller, recipient);
+  }
 
-        return caller then finalize(receiver, amount);
-    }
+  // leo run transfer_private ""
 
-    finalize transfer_private_to_public(receiver:address, amount:u64) {
-        let prev: u64 = Mapping::get_or_use(balance, receiver, 0u64);
+  transition transfer_private_to_public(receiver: address, amount: u64, input: Token) -> Token {
+    let remaining: u64 = input.balance - amount;
 
-        Mapping::set(balance, receiver, prev + amount);
-    }
+    let caller: Token = Token {
+      owner: self.caller,
+      balance: remaining,
+    };
 
-    transition transfer_public_to_private(receiver:address, amount:u64, input:Token) -> (Token) {
-        return Token {
-            owner: receiver,
-            balance: amount,
-        } then finalize(self.caller, amount);
-    }
+    return caller then finalize (receiver, amount);
+  }
 
-    finalize transfer_public_to_private(caller:address, amount:u64) {
-        let prev: u64 = Mapping::get(balance, caller);
+  finalize transfer_private_to_public(receiver: address, amount: u64){
+    let prev: u64 = Mapping::get_or_use(balance, receiver, 0u64);
 
-        Mapping::set(balance, caller, prev - amount);
-    }
+    Mapping::set(balance, receiver, prev + amount);
+  }
 
-    transition join(input:Token, input2: Token) -> (Token) {
-        return Token {
-            owner: self.caller,
-            balance: input.balance + input2.balance,
-        };
-    }
+  // leo run transfer_private_to_public "<receiver>" "10u64"
+
+  transition transfer_public_to_private(receiver: address, amount: u64) -> Token {
+    return Token {
+      owner: receiver,
+      balance: amount,
+    } then finalize (self.caller, amount);
+  }
+
+  finalize transfer_public_to_private(caller: address, amount: u64){
+    let prev: u64 = Mapping::get(balance, caller);
+
+    Mapping::set(balance, caller, prev - amount);
+  }
+
+  transition join(input: Token, input2: Token) -> Token {
+    return Token {
+      owner: self.caller,
+      balance: input.balance + input2.balance,
+    };
+  }
 }
-
